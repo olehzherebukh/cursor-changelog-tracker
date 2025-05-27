@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Cursor Changelog Tracker
+
+  Serverless application to track Cursor changelog
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 256
+    Runtime: python3.10
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+
+Resources:
+  FetchChangelogFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handler.fetch_changelog.handler.lambda_handler
+      Description: Fetches and processes Cursor changelog
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 7 * * ? *)
+            Description: Runs daily at 07:00 UTC
+            Enabled: true
+
+Outputs:
+  FetchChangelogFunction:
+    Description: "Fetch Changelog Lambda Function ARN"
+    Value: !GetAtt FetchChangelogFunction.Arn
+  FetchChangelogFunctionRole:
+    Description: "Implicit IAM Role created for the function"
+    Value: !GetAtt FetchChangelogFunction.Arn
