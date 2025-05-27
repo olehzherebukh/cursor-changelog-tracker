@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,15 @@ class Settings(BaseSettings):
 
     STORAGE_TYPE: str = "memory"  # Options: memory, file, s3, dynamodb
     STORAGE_FILE_PATH: Optional[str] = None
+
+    DYNAMODB_TABLE_NAME: str = "cursor-changelog-versions"
+
+    SES_REGION: str = "us-east-1"
+    SES_FROM_EMAIL: str = "noreply@example.com"  # Will be overridden by environment
+    SES_TO_EMAILS: List[str] = [
+        "oleh.zherebukh@inoxoft.com",
+        "ruslan.pitula@inoxoft.com",
+    ]
 
     model_config = SettingsConfigDict(
         env_file=".env",

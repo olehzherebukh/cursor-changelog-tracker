@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   Cursor Changelog Tracker
 
-  Serverless application to track Cursor changelog
+  Serverless application to track Cursor changelog with email notifications
 
 Globals:
   Function:
@@ -15,14 +15,35 @@ Globals:
     Environment:
       Variables:
         LOG_LEVEL: INFO
+        DYNAMODB_TABLE_NAME: !Ref ChangelogVersionsTable
+        SES_REGION: !Ref AWS::Region
 
 Resources:
+  ChangelogVersionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: cursor-changelog-versions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: version_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: version_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
   FetchChangelogFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend/
       Handler: handler.fetch_changelog.handler.lambda_handler
-      Description: Fetches and processes Cursor changelog
+      Description: Fetches and processes Cursor changelog with email notifications
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChangelogVersionsTable
+        - SESCrudPolicy:
+            IdentityName: "*"
       Events:
         DailySchedule:
           Type: Schedule
@@ -37,4 +58,10 @@ Outputs:
     Value: !GetAtt FetchChangelogFunction.Arn
   FetchChangelogFunctionRole:
     Description: "Implicit IAM Role created for the function"
-    Value: !GetAtt FetchChangelogFunction.Arn
+    Value: !GetAtt FetchChangelogFunctionRole.Arn
+  ChangelogVersionsTable:
+    Description: "DynamoDB table for tracking notified versions"
+    Value: !Ref ChangelogVersionsTable
+  ChangelogVersionsTableArn:
+    Description: "DynamoDB table ARN"
+    Value: !GetAtt ChangelogVersionsTable.Arn

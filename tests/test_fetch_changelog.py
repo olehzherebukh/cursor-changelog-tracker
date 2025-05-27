@@ -52,8 +52,12 @@ def test_changelog_parser(sample_html):
 
 
 @patch("httpx.Client")
-def test_lambda_handler(mock_client, sample_html):
-    """Test the Lambda handler function."""
+@patch("backend.handler.fetch_changelog.handler.dynamodb_service")
+@patch("backend.handler.fetch_changelog.handler.email_service")
+def test_lambda_handler_with_new_versions(
+    mock_email_service, mock_dynamodb_service, mock_client, sample_html
+):
+    """Test the Lambda handler function with new versions."""
     mock_response = MagicMock()
     mock_response.text = sample_html
     mock_response.raise_for_status = MagicMock()
@@ -62,6 +66,11 @@ def test_lambda_handler(mock_client, sample_html):
     mock_client_instance.get.return_value = mock_response
     mock_client.return_value.__enter__.return_value = mock_client_instance
 
+    mock_dynamodb_service.is_version_notified.return_value = False
+    mock_dynamodb_service.mark_version_notified.return_value = True
+
+    mock_email_service.send_changelog_notification.return_value = True
+
     event = {}
     context = MagicMock()
     response = lambda_handler(event, context)
@@ -69,4 +78,35 @@ def test_lambda_handler(mock_client, sample_html):
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert body["total_entries"] == 2
-    assert body["new_entries"] == 2
+    assert body["new_versions"] == 2
+    assert body["notifications_sent"] == 2
+
+
+@patch("httpx.Client")
+@patch("backend.handler.fetch_changelog.handler.dynamodb_service")
+@patch("backend.handler.fetch_changelog.handler.email_service")
+def test_lambda_handler_with_existing_versions(
+    mock_email_service, mock_dynamodb_service, mock_client, sample_html
+):
+    """Test the Lambda handler function with already notified versions."""
+    mock_response = MagicMock()
+    mock_response.text = sample_html
+    mock_response.raise_for_status = MagicMock()
+
+    mock_client_instance = MagicMock()
+    mock_client_instance.get.return_value = mock_response
+    mock_client.return_value.__enter__.return_value = mock_client_instance
+
+    mock_dynamodb_service.is_version_notified.return_value = True
+
+    event = {}
+    context = MagicMock()
+    response = lambda_handler(event, context)
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["total_entries"] == 2
+    assert body["new_versions"] == 0
+    assert body["notifications_sent"] == 0
+
+    mock_email_service.send_changelog_notification.assert_not_called()
